@@ -1,7 +1,6 @@
 # app.py - Servidor de backend com Flask e Neo4j para o Sistema de Biblioteca
 
 # --- 1. IMPORTAÇÕES ---
-# Todas as bibliotecas necessárias para o projeto
 from flask import Flask, request, jsonify, send_from_directory
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
@@ -10,49 +9,49 @@ from flask_cors import CORS
 import atexit
 
 # --- 2. CONFIGURAÇÃO INICIAL DO APP ---
-# Carrega variáveis de ambiente do arquivo .env (para teste local)
 load_dotenv()
 
-# Cria a aplicação Flask e aponta para a pasta do frontend
-# Este é um dos passos cruciais: ele diz ao Python onde encontrar seu index.html
+# Aponta para a pasta do frontend. Esta parte está correta.
 app = Flask(__name__, static_folder='../frontend')
-
-# Habilita CORS para permitir que o frontend (no navegador) se comunique com esta API
 CORS(app)
 
 # --- 3. CONEXÃO COM O BANCO DE DADOS NEO4J ---
-# Lê as credenciais das variáveis de ambiente que você configurou no Railway
 NEO4J_URI = os.getenv("NEO4J_URI")
 NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 driver = None
 try:
-    # Tenta estabelecer a conexão
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
-    # Verifica se a conexão é válida
     driver.verify_connectivity()
     print(">>> Conexão com Neo4j estabelecida com sucesso.")
 except Exception as e:
-    # Se a conexão falhar, imprime um erro claro no log.
-    # Este é um ponto comum de falha no deploy.
-    print(f">>> ERRO CRÍTICO: Não foi possível conectar ao Neo4j. Verifique as variáveis de ambiente. Erro: {e}")
+    print(f">>> ERRO CRÍTICO: Não foi possível conectar ao Neo4j. Erro: {e}")
 
-# Garante que a conexão com o banco seja fechada ao encerrar o app
 @atexit.register
 def close_db():
     if driver:
         driver.close()
         print(">>> Conexão com Neo4j fechada.")
 
+# --- 4. ROTAS PARA SERVIR O FRONTEND (AQUI ESTÁ A CORREÇÃO) ---
 
-# --- 4. ROTA PRINCIPAL PARA SERVIR O FRONTEND ---
-# Esta é a rota que resolve o erro "404 Not Found"
-# Quando alguém acessa a URL principal (ex: seu-site.up.railway.app/), esta função é chamada.
+# Rota principal que serve o index.html
 @app.route('/')
-def serve_frontend():
-    # A função envia o arquivo 'index.html' da pasta 'frontend' para o navegador do usuário
+def serve_index():
     return send_from_directory(app.static_folder, 'index.html')
+
+# Rota "CORINGA": Se a rota não for da API, tenta servir como um arquivo estático.
+# Isso é essencial para que o navegador encontre outros arquivos que o HTML possa precisar.
+@app.route('/<path:path>')
+def serve_static_files(path):
+    # Verifica se o caminho solicitado não começa com 'api/'
+    if not path.startswith('api/'):
+        # Tenta servir o arquivo solicitado da pasta 'frontend'
+        return send_from_directory(app.static_folder, path)
+    # Se começar com 'api/', o Flask continuará procurando uma rota de API correspondente.
+    # Retornamos um 404 explícito se nenhuma rota de API for encontrada.
+    return jsonify({"error": "Rota de API não encontrada"}), 404
 
 
 # --- 5. ROTAS DA API ---
@@ -285,6 +284,5 @@ def add_book():
         return jsonify({"error": f"Erro interno do servidor ao adicionar livro: {str(e)}"}), 500
 
 
-# Ponto de entrada para execução local (não é usado pelo Railway)
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
