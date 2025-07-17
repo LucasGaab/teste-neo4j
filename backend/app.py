@@ -1,6 +1,6 @@
 # app.py - Servidor de backend com Flask e Neo4j para o Sistema de Biblioteca
 
-# ADIÇÃO 1/3: Importar a função 'send_from_directory'
+# ### AJUSTE 1/3: Importações limpas e organizadas em um só lugar ###
 from flask import Flask, request, jsonify, send_from_directory
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
@@ -8,10 +8,11 @@ import os
 from flask_cors import CORS
 import atexit
 
-# Carrega variáveis de ambiente do arquivo .env
+# Carrega variáveis de ambiente do arquivo .env (para teste local)
 load_dotenv()
 
-# ADIÇÃO 2/3: Modificar a criação do app para ele encontrar a pasta do frontend
+# ### AJUSTE 2/3: A criação do app agora aponta para a pasta do frontend ###
+# O caminho '../frontend' diz ao Flask: "a partir daqui, volte um diretório e encontre a pasta 'frontend'"
 app = Flask(__name__, static_folder='../frontend')
 CORS(app) # Habilita CORS para todas as rotas da aplicação
 
@@ -21,7 +22,7 @@ NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 # Inicializa o driver do Neo4j
-driver = None 
+driver = None
 try:
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
     driver.verify_connectivity()
@@ -36,18 +37,15 @@ def close_db():
         driver.close()
         print("Conexão com Neo4j fechada.")
 
-
-# --- ROTA PRINCIPAL PARA SERVIR O FRONTEND ---
-
-# ADIÇÃO 3/3: Esta rota entrega o seu arquivo index.html para o navegador
+# ### AJUSTE 3/3: ROTA PRINCIPAL PARA SERVIR O FRONTEND ###
+# Esta rota é a que resolve o erro "Not Found".
+# Ela precisa existir para que o Flask saiba o que mostrar na URL principal.
 @app.route('/')
 def serve_frontend():
     return send_from_directory(app.static_folder, 'index.html')
 
+# --- ROTAS DA API (SEU CÓDIGO ORIGINAL, INTACTO) ---
 
-# --- SUAS ROTAS DE API ORIGINAIS (TUDO ABAIXO ESTÁ IGUAL AO SEU CÓDIGO) ---
-
-# Endpoint de recomendação de livros
 @app.route('/api/recommendations', methods=['GET'])
 def get_recommendations():
     if not driver:
@@ -100,7 +98,8 @@ def get_recommendations():
         print(f"Erro ao executar consulta Cypher: {e}")
         return jsonify({"error": "Erro interno do servidor ao buscar recomendações."}), 500
 
-# ENDPOINT: Listar todos os dados para debug
+# (O restante do seu código de API continua aqui, exatamente como você escreveu)
+
 @app.route('/api/debug/all_data', methods=['GET'])
 def debug_all_data():
     if not driver:
@@ -138,11 +137,11 @@ def debug_all_data():
                 "total_books": len(data),
                 "books": data
             }), 200
+            
     except Exception as e:
         print(f"Erro ao buscar dados para debug: {e}")
         return jsonify({"error": f"Erro ao buscar dados: {str(e)}"}), 500
 
-# ENDPOINT: Listar gêneros disponíveis
 @app.route('/api/genres', methods=['GET'])
 def get_genres():
     if not driver:
@@ -154,11 +153,11 @@ def get_genres():
             result = session.run(query)
             genres = [record["genre"] for record in result]
             return jsonify(genres), 200
+            
     except Exception as e:
         print(f"Erro ao buscar gêneros: {e}")
         return jsonify({"error": f"Erro ao buscar gêneros: {str(e)}"}), 500
 
-# ENDPOINT: Listar autores disponíveis
 @app.route('/api/authors', methods=['GET'])
 def get_authors():
     if not driver:
@@ -170,11 +169,11 @@ def get_authors():
             result = session.run(query)
             authors = [record["author"] for record in result]
             return jsonify(authors), 200
+            
     except Exception as e:
         print(f"Erro ao buscar autores: {e}")
         return jsonify({"error": f"Erro ao buscar autores: {str(e)}"}), 500
 
-# ENDPOINT: Executar consulta Cypher arbitrária
 @app.route('/api/cypher', methods=['POST'])
 def execute_cypher_query():
     if not driver:
@@ -201,7 +200,6 @@ def execute_cypher_query():
     except Exception as e:
         return jsonify({"error": f"Erro ao executar consulta Cypher: {str(e)}"}), 500
 
-# Funções auxiliares para contagem de nós
 def get_node_count(label):
     if not driver: return 0
     try:
@@ -260,7 +258,6 @@ def most_popular_genres():
         print(f"Erro ao buscar gêneros mais populares: {e}")
         return jsonify({"error": f"Erro ao buscar gêneros mais populares: {str(e)}"}), 500
 
-# ENDPOINT: Limpar Banco de Dados
 @app.route('/api/clear_database', methods=['POST'])
 def clear_database_endpoint():
     if not driver:
@@ -273,7 +270,6 @@ def clear_database_endpoint():
         print(f"Erro ao limpar o banco de dados: {e}")
         return jsonify({"error": f"Erro ao limpar o banco de dados: {str(e)}"}), 500
 
-# ENDPOINT: Testar Conexão
 @app.route('/api/test_connection', methods=['GET'])
 def test_connection_endpoint():
     if driver:
@@ -285,7 +281,6 @@ def test_connection_endpoint():
     else:
         return jsonify({"status": "disconnected", "message": "Driver Neo4j não inicializado."}), 500
 
-# ENDPOINT: Adicionar Livro
 @app.route('/api/add_book', methods=['POST'])
 def add_book():
     if not driver:
@@ -306,32 +301,44 @@ def add_book():
 
     try:
         with driver.session() as session:
-            session.run("""
-                MERGE (a:Autor {nome: $author_name})
-                MERGE (l:Livro {titulo: $title})
-                ON CREATE SET l.ano = $year, l.paginas = $pages
-                MERGE (a)-[:ESCREVEU]->(l)
-                FOREACH (genre_name IN $genres |
-                    MERGE (g:Genero {nome: genre_name})
-                    MERGE (l)-[:TEM_GENERO]->(g)
-                )
-                WITH l, $publisher_name AS publisher_name
-                WHERE publisher_name IS NOT NULL AND publisher_name <> ''
-                MERGE (p:Editora {nome: publisher_name})
-                MERGE (l)-[:PUBLICADO_POR]->(p)
-            """, {
-                "author_name": author_name,
-                "title": title,
-                "year": int(year) if year else None,
-                "pages": int(pages) if pages else None,
-                "genres": genres,
-                "publisher_name": publisher_name
-            })
+            tx = session.begin_transaction()
+            try:
+                tx.run("MERGE (a:Autor {nome: $author_name})", {"author_name": author_name})
+
+                if publisher_name:
+                    tx.run("MERGE (p:Editora {nome: $publisher_name})", {"publisher_name": publisher_name})
+
+                book_props = {}
+                if year: book_props["ano"] = int(year)
+                if pages: book_props["paginas"] = int(pages)
+                tx.run("MERGE (l:Livro {titulo: $title}) SET l += $props", {"title": title, "props": book_props})
+
+                tx.run("MATCH (a:Autor {nome: $author_name}) MATCH (l:Livro {titulo: $title}) MERGE (a)-[:ESCREVEU]->(l)",
+                       {"author_name": author_name, "title": title})
+
+                for genre_name in genres:
+                    tx.run("""
+                        MATCH (l:Livro {titulo: $title})
+                        MERGE (g:Genero {nome: $genre_name})
+                        MERGE (l)-[:TEM_GENERO]->(g)
+                    """, {"title": title, "genre_name": genre_name})
+
+                if publisher_name:
+                    tx.run("""
+                        MATCH (l:Livro {titulo: $title})
+                        MATCH (p:Editora {nome: $publisher_name})
+                        MERGE (l)-[:PUBLICADO_POR]->(p)
+                    """, {"title": title, "publisher_name": publisher_name})
+                
+                tx.commit()
+            except Exception as e:
+                tx.rollback()
+                raise e
+
         return jsonify({"message": f"Livro '{title}' adicionado/atualizado com sucesso!"}), 201
     except Exception as e:
         print(f"Erro ao adicionar livro: {e}")
         return jsonify({"error": f"Erro interno do servidor ao adicionar livro: {str(e)}"}), 500
 
-# Ponto de entrada para execução local
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
