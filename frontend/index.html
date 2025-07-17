@@ -1,696 +1,333 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Biblioteca - Neo4j</title>
-    <style>
-        /* Estilos CSS  */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .header {
-            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-        .header p {
-            font-size: 1.2em;
-            opacity: 0.9;
-        }
-        .tabs {
-            display: flex;
-            background: #f8f9fa;
-            border-bottom: 2px solid #e9ecef;
-        }
-        .tab {
-            flex: 1;
-            padding: 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
-            color: #495057;
-        }
-        .tab:hover {
-            background: #e9ecef;
-            color: #007bff;
-        }
-        .tab.active {
-            background: #007bff;
-            color: white;
-            border-bottom: 3px solid #0056b3;
-        }
-        .content {
-            padding: 30px;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-            animation: fadeIn 0.5s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .search-section, .register-section {
-            margin-bottom: 30px;
-        }
-        .search-form, .register-form {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        .search-input, .register-input {
-            flex: 1;
-            padding: 12px 20px;
-            border: 2px solid #e9ecef;
-            border-radius: 25px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
-        }
-        .search-input:focus, .register-input:focus {
-            outline: none;
-            border-color: #007bff;
-        }
-        .search-btn, .register-btn {
-            padding: 12px 30px;
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: transform 0.3s ease;
-        }
-        .search-btn:hover, .register-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,123,255,0.4);
-        }
-        .filter-section {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        .filter-select {
-            padding: 10px 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 20px;
-            background: white;
-            cursor: pointer;
-        }
-        .results-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-        .result-card {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease;
-            border-left: 4px solid #007bff;
-        }
-        .result-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-        }
-        .result-card h3 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-            font-size: 1.3em;
-        }
-        .result-card p {
-            color: #6c757d;
-            line-height: 1.6;
-            margin-bottom: 8px;
-        }
-        .tag {
-            display: inline-block;
-            padding: 5px 12px;
-            background: #e7f3ff;
-            color: #0056b3;
-            border-radius: 15px;
-            font-size: 0.9em;
-            margin: 5px 5px 0 0;
-        }
-        .cypher-section {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        .cypher-input {
-            width: 100%;
-            height: 120px;
-            padding: 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 10px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            resize: vertical;
-        }
-        .cypher-results {
-            background: #2c3e50;
-            color: #ecf0f1;
-            padding: 20px;
-            border-radius: 10px;
-            margin-top: 15px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            min-height: 100px;
-            overflow-x: auto;
-            white-space: pre-wrap; /* Para quebrar linhas longas */
-            word-wrap: break-word; /* Para quebrar palavras longas */
-        }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #6c757d;
-        }
-        .loading::after {
-            content: '';
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #007bff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-left: 10px;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .connection-status {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: 600;
-            z-index: 1000;
-        }
-        .connection-status.connected {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .connection-status.disconnected {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .alert {
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 10px;
-            border-left: 4px solid;
-        }
-        .alert-info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border-left-color: #17a2b8;
-        }
-        .alert-warning {
-            background: #fff3cd;
-            color: #856404;
-            border-left-color: #ffc107;
-        }
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border-left-color: #28a745;
-        }
-        @media (max-width: 768px) {
-            .search-form, .register-form {
-                flex-direction: column;
-            }
-            .filter-section {
-                flex-direction: column;
-            }
-            .results-grid {
-                grid-template-columns: 1fr;
-            }
-        }
+# app.py - Servidor de backend com Flask e Neo4j (Versão API Pura - COMPLETO)
 
-        /* Custom Modal Styles */
-        .modal {
-            display: none; /* Hidden by default */
-            position: fixed; /* Stay in place */
-            z-index: 1001; /* Sit on top */
-            left: 0;
-            top: 0;
-            width: 100%; /* Full width */
-            height: 100%; /* Full height */
-            overflow: auto; /* Enable scroll if needed */
-            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-            padding-top: 60px;
-        }
+from flask import Flask, request, jsonify
+from neo4j import GraphDatabase
+from dotenv import load_dotenv
+import os
+from flask_cors import CORS
+import atexit
 
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto; /* 15% from the top and centered */
-            padding: 30px;
-            border: 1px solid #888;
-            width: 80%; /* Could be more or less, depending on screen size */
-            max-width: 500px;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            position: relative;
-        }
+# Carrega variáveis de ambiente do arquivo .env
+load_dotenv()
 
-        .close-button {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
+# Criação do app simples. Não precisamos mais apontar para a pasta 'frontend'.
+app = Flask(__name__)
+# CORS é essencial aqui, pois vai receber requisições de outro serviço (o do frontend).
+CORS(app) 
 
-        .close-button:hover,
-        .close-button:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-    </style>
-</head>
-<body>
-    <!-- Custom Alert/Confirm Modal -->
-    <div id="customModal" class="modal">
-        <div class="modal-content">
-            <span class="close-button" onclick="closeModal()">&times;</span>
-            <p id="modalMessage"></p>
-            <div id="modalButtons" style="text-align: right; margin-top: 20px;">
-                <button id="modalConfirmBtn" class="search-btn" style="background: #007bff; margin-right: 10px;">Confirmar</button>
-                <button id="modalCancelBtn" class="search-btn" style="background: #6c757d;">Cancelar</button>
-            </div>
-        </div>
-    </div>
+# Configurações do Neo4j (sem alterações)
+NEO4J_URI = os.getenv("NEO4J_URI")
+NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
-    <div class="connection-status" id="connectionStatus">
-        🔴 Desconectado do Neo4j
-    </div>
-    <div class="container">
-        <div class="header">
-            <h1>📚 Sistema de Biblioteca</h1>
-            <p>Interface Web para Neo4j - Gerenciamento de Livros e Autores</p>
-        </div>
-        <div class="tabs">
-            <div class="tab active" onclick="showTab('search')">🔍 Buscar</div>
-            <div class="tab" onclick="showTab('register')">➕ Cadastrar</div>
-            <div class="tab" onclick="showTab('cypher')">⚡ Cypher</div>
-            <!-- Aba Configuração removida -->
-        </div>
-        <div class="content">
-            <!-- ABA BUSCAR -->
-            <div id="search" class="tab-content active">
-                <div class="search-section">
-                    <h2>Buscar na Biblioteca</h2>
-                    <div class="search-form">
-                        <input type="text" class="search-input" id="genreInput" placeholder="Digite o gênero (obrigatório)...">
-                        <input type="text" class="search-input" id="authorInput" placeholder="Digite o autor (opcional)...">
-                        <button class="search-btn" onclick="performSearch()">Buscar</button>
-                    </div>
-                    <div class="filter-section">
-                        <select class="filter-select" id="searchType">
-                            <option value="genre_author">Gênero & Autor</option>
-                        </select>
-                    </div>
-                </div>
-                <div id="searchResults" class="results-grid">
-                    <!-- Resultados aparecerão aqui -->
-                </div>
-            </div>
+# Inicializa o driver do Neo4j (sem alterações)
+driver = None
+try:
+    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
+    driver.verify_connectivity()
+    print(">>> Conexão com Neo4j estabelecida com sucesso.")
+except Exception as e:
+    print(f">>> ERRO CRÍTICO ao conectar ao Neo4j: {e}")
 
-            <!-- ABA CADASTRAR -->
-            <div id="register" class="tab-content">
-                <div class="register-section">
-                    <h2>Cadastrar Novo Livro</h2>
-                    <div class="register-form" style="flex-direction: column;">
-                        <label for="bookTitle">Título do Livro (obrigatório):</label>
-                        <input type="text" class="register-input" id="bookTitle" placeholder="Ex: O Pequeno Príncipe">
+# Função para fechar a conexão (sem alterações)
+@atexit.register
+def close_db():
+    if driver:
+        driver.close()
+        print(">>> Conexão com Neo4j fechada.")
 
-                        <label for="bookAuthor">Nome do Autor (obrigatório):</label>
-                        <input type="text" class="register-input" id="bookAuthor" placeholder="Ex: Antoine de Saint-Exupéry">
+# --- ROTAS DA API ---
+# Nenhuma rota para servir HTML. Apenas as suas rotas /api/...
 
-                        <label for="bookGenres">Gêneros (separados por vírgula, obrigatório):</label>
-                        <input type="text" class="register-input" id="bookGenres" placeholder="Ex: Infantil, Fantasia, Aventura">
+@app.route('/api/recommendations', methods=['GET'])
+def get_recommendations():
+    if not driver:
+        return jsonify({"error": "Banco de dados não conectado."}), 503
 
-                        <label for="bookPublisher">Editora (opcional):</label>
-                        <input type="text" class="register-input" id="bookPublisher" placeholder="Ex: Agir">
+    genre = request.args.get('genre')
+    author = request.args.get('author')
 
-                        <label for="bookYear">Ano de Publicação (opcional):</label>
-                        <input type="number" class="register-input" id="bookYear" placeholder="Ex: 1943">
+    if not genre:
+        return jsonify({"error": "O parâmetro 'genre' é obrigatório."}), 400
 
-                        <label for="bookPages">Número de Páginas (opcional):</label>
-                        <input type="number" class="register-input" id="bookPages" placeholder="Ex: 96">
+    if author and author.lower() not in ['qualquer', '', 'any']:
+        query = """
+            MATCH (l:Livro)-[:TEM_GENERO]->(g:Genero)
+            WHERE toLower(g.nome) CONTAINS toLower($genre)
+            WITH l, g
+            MATCH (a:Autor)-[:ESCREVEU]->(l)
+            WHERE toLower(a.nome) CONTAINS toLower($author)
+            RETURN l.titulo AS title, a.nome AS author, g.nome AS genre, l.ano AS year, l.paginas AS pages
+            LIMIT 10
+        """
+        params = {"genre": genre, "author": author}
+    else:
+        query = """
+            MATCH (l:Livro)-[:TEM_GENERO]->(g:Genero)
+            WHERE toLower(g.nome) CONTAINS toLower($genre)
+            OPTIONAL MATCH (a:Autor)-[:ESCREVEU]->(l)
+            RETURN l.titulo AS title, a.nome AS author, g.nome AS genre, l.ano AS year, l.paginas AS pages
+            LIMIT 10
+        """
+        params = {"genre": genre}
 
-                        <button class="register-btn" onclick="registerBook()">Cadastrar Livro</button>
-                    </div>
-                </div>
-            </div>
+    try:
+        with driver.session() as session:
+            result = session.run(query, params)
+            recommendations = [
+                {
+                    "title": record["title"],
+                    "author": record["author"] if record["author"] is not None else "Desconhecido",
+                    "genre": record["genre"],
+                    "year": record["year"] if record["year"] is not None else "N/A",
+                    "pages": record["pages"] if record["pages"] is not None else "N/A"
+                } for record in result
+            ]
+            return jsonify(recommendations), 200
+    except Exception as e:
+        print(f"Erro ao executar consulta Cypher: {e}")
+        return jsonify({"error": "Erro interno do servidor ao buscar recomendações."}), 500
 
-            <!-- ABA CYPHER -->
-            <div id="cypher" class="tab-content">
-                <h2>Console Cypher</h2>
-                <div class="alert alert-info">
-                    <strong>Dica:</strong> Execute consultas Cypher diretamente no banco Neo4j.
-                </div>
-                <div class="cypher-section">
-                    <textarea class="cypher-input" id="cypherInput" placeholder="Digite sua consulta Cypher aqui...Exemplo:MATCH (a:Autor)-[:ESCRITO_POR]-(l:Livro)RETURN a.nome as autor, l.titulo as livroLIMIT 10"></textarea>
-                    <button class="search-btn" onclick="executeCypher()">Executar</button>
-                </div>
-                <div class="cypher-results" id="cypherResults">
-                    Resultados aparecerão aqui...
-                </div>
-            </div>
+@app.route('/api/debug/all_data', methods=['GET'])
+def debug_all_data():
+    if not driver:
+        return jsonify({"error": "Banco de dados não conectado."}), 500
+    
+    try:
+        with driver.session() as session:
+            query = """
+            MATCH (l:Livro)
+            OPTIONAL MATCH (a:Autor)-[:ESCREVEU]->(l)
+            OPTIONAL MATCH (l)-[:TEM_GENERO]->(g:Genero)
+            OPTIONAL MATCH (l)-[:PUBLICADO_POR]->(p:Editora)
+            RETURN l.titulo AS title, 
+                   collect(DISTINCT a.nome) AS authors,
+                   collect(DISTINCT g.nome) AS genres,
+                   collect(DISTINCT p.nome) AS publishers,
+                   l.ano AS year,
+                   l.paginas AS pages
+            ORDER BY l.titulo
+            """
+            result = session.run(query)
+            
+            data = []
+            for record in result:
+                data.append({
+                    "title": record["title"],
+                    "authors": [a for a in record["authors"] if a is not None],
+                    "genres": [g for g in record["genres"] if g is not None],
+                    "publishers": [p for p in record["publishers"] if p is not None],
+                    "year": record["year"],
+                    "pages": record["pages"]
+                })
+            
+            return jsonify({
+                "total_books": len(data),
+                "books": data
+            }), 200
+            
+    except Exception as e:
+        print(f"Erro ao buscar dados para debug: {e}")
+        return jsonify({"error": f"Erro ao buscar dados: {str(e)}"}), 500
 
-           
-        </div>
-    </div>
-    <script>
-        // URL base da sua API Flask
-        const API_BASE_URL = '/api'; // Certifique-se de que esta é a URL correta do seu backend Flask
+@app.route('/api/genres', methods=['GET'])
+def get_genres():
+    if not driver:
+        return jsonify({"error": "Banco de dados não conectado."}), 500
+    
+    try:
+        with driver.session() as session:
+            query = "MATCH (g:Genero) RETURN g.nome AS genre ORDER BY g.nome"
+            result = session.run(query)
+            genres = [record["genre"] for record in result]
+            return jsonify(genres), 200
+            
+    except Exception as e:
+        print(f"Erro ao buscar gêneros: {e}")
+        return jsonify({"error": f"Erro ao buscar gêneros: {str(e)}"}), 500
 
-        let isConnected = false;
-        let resolveModalPromise; // Para o modal de confirmação
+@app.route('/api/authors', methods=['GET'])
+def get_authors():
+    if not driver:
+        return jsonify({"error": "Banco de dados não conectado."}), 500
+    
+    try:
+        with driver.session() as session:
+            query = "MATCH (a:Autor) RETURN a.nome AS author ORDER BY a.nome"
+            result = session.run(query)
+            authors = [record["author"] for record in result]
+            return jsonify(authors), 200
+            
+    except Exception as e:
+        print(f"Erro ao buscar autores: {e}")
+        return jsonify({"error": f"Erro ao buscar autores: {str(e)}"}), 500
 
-        // Função para exibir modal personalizado (substitui alert/confirm)
-        function showCustomModal(message, type = 'alert') {
-            const modal = document.getElementById('customModal');
-            const modalMessage = document.getElementById('modalMessage');
-            const modalButtons = document.getElementById('modalButtons');
-            const modalConfirmBtn = document.getElementById('modalConfirmBtn');
-            const modalCancelBtn = document.getElementById('modalCancelBtn');
+@app.route('/api/cypher', methods=['POST'])
+def execute_cypher_query():
+    if not driver:
+        return jsonify({"error": "Banco de dados não conectado."}), 500
+    
+    data = request.get_json()
+    query = data.get('query')
+    params = data.get('params', {})
 
-            modalMessage.textContent = message;
+    if not query:
+        return jsonify({"error": "A consulta Cypher é obrigatória."}), 400
 
-            if (type === 'confirm') {
-                modalButtons.style.display = 'block';
-                modalConfirmBtn.onclick = () => {
-                    modal.style.display = 'none';
-                    resolveModalPromise(true);
-                };
-                modalCancelBtn.onclick = () => {
-                    modal.style.display = 'none';
-                    resolveModalPromise(false);
-                };
-                return new Promise(resolve => {
-                    resolveModalPromise = resolve;
-                    modal.style.display = 'block';
-                });
-            } else { // type === 'alert'
-                modalButtons.style.display = 'none';
-                modal.style.display = 'block';
-                // Permite fechar clicando fora ou no botão fechar
-                modal.onclick = (event) => {
-                    if (event.target === modal) {
-                        modal.style.display = 'none';
-                    }
-                };
-                document.querySelector('.close-button').onclick = () => {
-                    modal.style.display = 'none';
-                };
-            }
-        }
+    try:
+        with driver.session() as session:
+            result = session.run(query, params)
+            records = []
+            try:
+                for record in result:
+                    records.append(record.data())
+            except Exception:
+                summary = result.consume()
+                records.append(summary.counters.__dict__)
+            return jsonify(records), 200
+    except Exception as e:
+        return jsonify({"error": f"Erro ao executar consulta Cypher: {str(e)}"}), 500
 
-        function closeModal() {
-            document.getElementById('customModal').style.display = 'none';
-        }
+def get_node_count(label):
+    if not driver: return 0
+    try:
+        with driver.session() as session:
+            result = session.run(f"MATCH (n:{label}) RETURN count(n) AS count")
+            return result.single()["count"]
+    except Exception as e:
+        print(f"Erro ao contar nós {label}: {e}")
+        return 0
 
-        // Função para alternar entre abas
-        function showTab(tabName) {
-            const tabs = document.querySelectorAll('.tab-content');
-            tabs.forEach(tab => tab.classList.remove('active'));
+@app.route('/api/stats/total_authors', methods=['GET'])
+def total_authors():
+    return jsonify({"count": get_node_count("Autor")})
 
-            const tabButtons = document.querySelectorAll('.tab');
-            tabButtons.forEach(tab => tab.classList.remove('active'));
+@app.route('/api/stats/total_books', methods=['GET'])
+def total_books():
+    return jsonify({"count": get_node_count("Livro")})
 
-            document.getElementById(tabName).classList.add('active');
-            // Encontra o botão da aba clicada usando o tabName
-            const clickedTabButton = document.querySelector(`.tab[onclick="showTab('${tabName}')"]`);
-            if (clickedTabButton) {
-                clickedTabButton.classList.add('active');
-            }
-            // Removido o tratamento específico para a aba 'config'
-            // if (tabName === 'config') {
-            //     document.getElementById('neo4jUrl').value = API_BASE_URL.replace('/api', '');
-            // }
-        }
+@app.route('/api/stats/total_genres', methods=['GET'])
+def total_genres():
+    return jsonify({"count": get_node_count("Genero")})
 
-        // Função de busca
-        async function performSearch() {
-            const genre = document.getElementById('genreInput').value.trim();
-            const author = document.getElementById('authorInput').value.trim();
-            const resultsDiv = document.getElementById('searchResults');
+@app.route('/api/stats/total_publishers', methods=['GET'])
+def total_publishers():
+    return jsonify({"count": get_node_count("Editora")})
 
-            if (!genre) {
-                showCustomModal('O campo "Gênero" é obrigatório para a busca.', 'alert');
-                resultsDiv.innerHTML = ''; // Limpa resultados anteriores
-                return;
-            }
+@app.route('/api/stats/most_productive_authors', methods=['GET'])
+def most_productive_authors():
+    if not driver: return jsonify([])
+    try:
+        with driver.session() as session:
+            query = """
+            MATCH (a:Autor)-[:ESCREVEU]->(l:Livro)
+            RETURN a.nome AS author, count(l) AS bookCount
+            ORDER BY bookCount DESC LIMIT 3
+            """
+            result = session.run(query)
+            return jsonify([record.data() for record in result]), 200
+    except Exception as e:
+        print(f"Erro ao buscar autores mais produtivos: {e}")
+        return jsonify({"error": f"Erro ao buscar autores mais produtivos: {str(e)}"}), 500
 
-            resultsDiv.innerHTML = '<div class="loading">Buscando...</div>';
+@app.route('/api/stats/most_popular_genres', methods=['GET'])
+def most_popular_genres():
+    if not driver: return jsonify([])
+    try:
+        with driver.session() as session:
+            query = """
+            MATCH (g:Genero)<-[:TEM_GENERO]-(l:Livro)
+            RETURN g.nome AS genre, count(l) AS bookCount
+            ORDER BY bookCount DESC LIMIT 3
+            """
+            result = session.run(query)
+            return jsonify([record.data() for record in result]), 200
+    except Exception as e:
+        print(f"Erro ao buscar gêneros mais populares: {e}")
+        return jsonify({"error": f"Erro ao buscar gêneros mais populares: {str(e)}"}), 500
 
-            try {
-                let url = `${API_BASE_URL}/recommendations?genre=${encodeURIComponent(genre)}`;
-                if (author) {
-                    url += `&author=${encodeURIComponent(author)}`;
-                }
+@app.route('/api/clear_database', methods=['POST'])
+def clear_database_endpoint():
+    if not driver:
+        return jsonify({"error": "Banco de dados não conectado."}), 500
+    try:
+        with driver.session() as session:
+            session.run("MATCH (n) DETACH DELETE n")
+        return jsonify({"message": "Banco de dados limpo com sucesso!"}), 200
+    except Exception as e:
+        print(f"Erro ao limpar o banco de dados: {e}")
+        return jsonify({"error": f"Erro ao limpar o banco de dados: {str(e)}"}), 500
 
-                const response = await fetch(url);
-                const data = await response.json();
+@app.route('/api/test_connection', methods=['GET'])
+def test_connection_endpoint():
+    if driver:
+        try:
+            driver.verify_connectivity()
+            return jsonify({"status": "connected", "message": "Conexão com Neo4j estabelecida."}), 200
+        except Exception as e:
+            return jsonify({"status": "disconnected", "message": f"Erro na conexão com Neo4j: {str(e)}"}), 500
+    else:
+        return jsonify({"status": "disconnected", "message": "Driver Neo4j não inicializado."}), 500
 
-                if (response.ok) {
-                    displayResults(data);
-                } else {
-                    resultsDiv.innerHTML = `<div class="alert alert-warning">Erro: ${data.error || 'Ocorreu um erro na busca.'}</div>`;
-                }
-            } catch (error) {
-                console.error('Erro ao buscar recomendações:', error);
-                resultsDiv.innerHTML = '<div class="alert alert-warning">Erro ao conectar com o servidor. Verifique se o backend está rodando.</div>';
-            }
-        }
+@app.route('/api/add_book', methods=['POST'])
+def add_book():
+    if not driver:
+        return jsonify({"error": "Banco de dados não conectado."}), 500
 
-        // Função para exibir resultados
-        function displayResults(results) {
-            const resultsDiv = document.getElementById('searchResults');
+    data = request.get_json()
+    title = data.get('title')
+    author_name = data.get('author')
+    genres_str = data.get('genres', '')
+    publisher_name = data.get('publisher')
+    year = data.get('year')
+    pages = data.get('pages')
 
-            if (results.length === 0) {
-                resultsDiv.innerHTML = '<div class="alert alert-info">Nenhum resultado encontrado</div>';
-                return;
-            }
-            resultsDiv.innerHTML = results.map(result => `
-                <div class="result-card">
-                    <h3>${result.title}</h3>
-                    <p><strong>Autor:</strong> ${result.author}</p>
-                    <p><strong>Gênero:</strong> ${result.genre}</p>
-                    <div>
-                        <span class="tag">Livro</span>
-                        <span class="tag">Recomendação</span>
-                    </div>
-                </div>
-            `).join('');
-        }
+    if not all([title, author_name, genres_str]):
+        return jsonify({"error": "Título, autor e pelo menos um gênero são obrigatórios."}), 400
 
-        // Função: Cadastrar Livro
-        async function registerBook() {
-            const title = document.getElementById('bookTitle').value.trim();
-            const author = document.getElementById('bookAuthor').value.trim();
-            const genres = document.getElementById('bookGenres').value.trim(); // String separada por vírgulas
-            const publisher = document.getElementById('bookPublisher').value.trim();
-            const year = document.getElementById('bookYear').value.trim();
-            const pages = document.getElementById('bookPages').value.trim();
+    genres = [g.strip() for g in genres_str.split(',') if g.strip()]
 
-            if (!title || !author || !genres) {
-                showCustomModal('Título, autor e pelo menos um gênero são obrigatórios.', 'alert');
-                return;
-            }
+    try:
+        with driver.session() as session:
+            tx = session.begin_transaction()
+            try:
+                tx.run("MERGE (a:Autor {nome: $author_name})", {"author_name": author_name})
 
-            const bookData = {
-                title: title,
-                author: author,
-                genres: genres,
-                publisher: publisher,
-                year: year,
-                pages: pages
-            };
+                if publisher_name:
+                    tx.run("MERGE (p:Editora {nome: $publisher_name})", {"publisher_name": publisher_name})
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/add_book`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(bookData)
-                });
-                const data = await response.json();
+                book_props = {}
+                if year: book_props["ano"] = int(year)
+                if pages: book_props["paginas"] = int(pages)
+                tx.run("MERGE (l:Livro {titulo: $title}) SET l += $props", {"title": title, "props": book_props})
 
-                if (response.ok) {
-                    showCustomModal(data.message, 'alert');
-                    // Limpar formulário após sucesso
-                    document.getElementById('bookTitle').value = '';
-                    document.getElementById('bookAuthor').value = '';
-                    document.getElementById('bookGenres').value = '';
-                    document.getElementById('bookPublisher').value = '';
-                    document.getElementById('bookYear').value = '';
-                    document.getElementById('bookPages').value = '';
-                } else {
-                    showCustomModal(`Erro ao cadastrar livro: ${data.error || 'Ocorreu um erro.'}`, 'alert');
-                }
-            } catch (error) {
-                console.error('Erro ao cadastrar livro:', error);
-                showCustomModal('Erro ao conectar com o servidor para cadastrar livro. Verifique se o backend está rodando.', 'alert');
-            }
-        }
+                tx.run("MATCH (a:Autor {nome: $author_name}) MATCH (l:Livro {titulo: $title}) MERGE (a)-[:ESCREVEU]->(l)",
+                       {"author_name": author_name, "title": title})
 
-        // Função para executar Cypher
-        async function executeCypher() {
-            const query = document.getElementById('cypherInput').value;
-            const resultsDiv = document.getElementById('cypherResults');
+                for genre_name in genres:
+                    tx.run("""
+                        MATCH (l:Livro {titulo: $title})
+                        MERGE (g:Genero {nome: $genre_name})
+                        MERGE (l)-[:TEM_GENERO]->(g)
+                    """, {"title": title, "genre_name": genre_name})
 
-            if (!query.trim()) {
-                resultsDiv.innerHTML = 'Digite uma consulta Cypher';
-                return;
-            }
-            resultsDiv.innerHTML = '<div class="loading">Executando consulta...</div>';
+                if publisher_name:
+                    tx.run("""
+                        MATCH (l:Livro {titulo: $title})
+                        MATCH (p:Editora {nome: $publisher_name})
+                        MERGE (l)-[:PUBLICADO_POR]->(p)
+                    """, {"title": title, "publisher_name": publisher_name})
+                
+                tx.commit()
+            except Exception as e:
+                tx.rollback()
+                raise e
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/cypher`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ query: query })
-                });
-                const data = await response.json();
+        return jsonify({"message": f"Livro '{title}' adicionado/atualizado com sucesso!"}), 201
+    except Exception as e:
+        print(f"Erro ao adicionar livro: {e}")
+        return jsonify({"error": f"Erro interno do servidor ao adicionar livro: {str(e)}"}), 500
 
-                if (response.ok) {
-                    resultsDiv.textContent = JSON.stringify(data, null, 2);
-                } else {
-                    resultsDiv.textContent = `Erro: ${data.error || 'Ocorreu um erro ao executar a consulta.'}`;
-                    resultsDiv.style.color = '#f8d7da';
-                    resultsDiv.style.backgroundColor = '#721c24';
-                }
-            } catch (error) {
-                console.error('Erro ao executar Cypher:', error);
-                resultsDiv.textContent = 'Erro ao conectar com o servidor. Verifique se o backend está rodando.';
-                resultsDiv.style.color = '#f8d7da';
-                resultsDiv.style.backgroundColor = '#721c24';
-            } finally {
-                if (resultsDiv.style.color === '#f8d7da') {
-                    resultsDiv.style.color = '#ecf0f1';
-                    resultsDiv.style.backgroundColor = '#2c3e50';
-                }
-            }
-        }
-
-        // Função para testar conexão com o backend (mantida para inicialização)
-        async function testConnection() {
-            const statusDiv = document.getElementById('connectionStatus');
-            statusDiv.textContent = '🟡 Testando conexão...';
-            statusDiv.className = 'connection-status';
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/test_connection`);
-                const data = await response.json();
-
-                if (response.ok && data.status === 'connected') {
-                    isConnected = true;
-                    // showCustomModal('Conexão com o backend estabelecida com sucesso!', 'alert'); // Removido pop-up
-                } else {
-                    isConnected = false;
-                    // showCustomModal(`Falha na conexão com o backend: ${data.message || 'Erro desconhecido'}`, 'alert'); // Removido pop-up
-                }
-            } catch (error) {
-                isConnected = false;
-                // showCustomModal('Erro ao conectar com o backend. Verifique a URL e se o servidor está rodando.', 'alert'); // Removido pop-up
-            } finally {
-                updateConnectionStatus();
-            }
-        }
-
-        // Função para atualizar status da conexão na UI
-        function updateConnectionStatus() {
-            const statusDiv = document.getElementById('connectionStatus');
-            if (isConnected) {
-                statusDiv.textContent = '🟢 Conectado ao Neo4j';
-                statusDiv.className = 'connection-status connected';
-            } else {
-                statusDiv.textContent = '🔴 Desconectado do Neo4j';
-                statusDiv.className = 'connection-status disconnected';
-            }
-        }
-
-        // Função para limpar o banco de dados (mantida, mas sem botão na UI)
-        async function clearDatabase() {
-            const confirmClear = await showCustomModal('ATENÇÃO: Isso irá apagar TODOS os dados do banco. Continuar?', 'confirm');
-            if (confirmClear) {
-                try {
-                    const response = await fetch(`${API_BASE_URL}/clear_database`, {
-                        method: 'POST'
-                    });
-                    const data = await response.json();
-
-                    if (response.ok) {
-                        showCustomModal(data.message, 'alert');
-                    } else {
-                        showCustomModal(`Erro ao limpar o banco: ${data.error || 'Ocorreu um erro.'}`, 'alert');
-                    }
-                } catch (error) {
-                    console.error('Erro ao limpar o banco:', error);
-                    showCustomModal('Erro ao conectar com o servidor para limpar o banco. Verifique se o backend está rodando.', 'alert');
-                }
-            }
-        }
-
-        // Event listeners para o campo de busca
-        document.getElementById('genreInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                performSearch();
-            }
-        });
-        document.getElementById('authorInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                performSearch();
-            }
-        });
-
-        // Inicializar: Testar conexão ao carregar a página
-        window.onload = () => {
-            testConnection();
-        };
-    </script>
-</body>
-</html>
+# Ponto de entrada para execução (sem alterações)
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
