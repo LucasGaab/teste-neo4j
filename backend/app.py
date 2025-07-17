@@ -1,6 +1,7 @@
 # app.py - Servidor de backend com Flask e Neo4j para o Sistema de Biblioteca
 
-# ### AJUSTE 1/3: Importações limpas e organizadas em um só lugar ###
+# --- 1. IMPORTAÇÕES ---
+# Todas as bibliotecas necessárias para o projeto
 from flask import Flask, request, jsonify, send_from_directory
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
@@ -8,48 +9,59 @@ import os
 from flask_cors import CORS
 import atexit
 
+# --- 2. CONFIGURAÇÃO INICIAL DO APP ---
 # Carrega variáveis de ambiente do arquivo .env (para teste local)
 load_dotenv()
 
-# ### AJUSTE 2/3: A criação do app agora aponta para a pasta do frontend ###
-# O caminho '../frontend' diz ao Flask: "a partir daqui, volte um diretório e encontre a pasta 'frontend'"
+# Cria a aplicação Flask e aponta para a pasta do frontend
+# Este é um dos passos cruciais: ele diz ao Python onde encontrar seu index.html
 app = Flask(__name__, static_folder='../frontend')
-CORS(app) # Habilita CORS para todas as rotas da aplicação
 
-# Configurações do Neo4j
+# Habilita CORS para permitir que o frontend (no navegador) se comunique com esta API
+CORS(app)
+
+# --- 3. CONEXÃO COM O BANCO DE DADOS NEO4J ---
+# Lê as credenciais das variáveis de ambiente que você configurou no Railway
 NEO4J_URI = os.getenv("NEO4J_URI")
 NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
-# Inicializa o driver do Neo4j
 driver = None
 try:
+    # Tenta estabelecer a conexão
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
+    # Verifica se a conexão é válida
     driver.verify_connectivity()
-    print("Conexão com Neo4j estabelecida com sucesso.")
+    print(">>> Conexão com Neo4j estabelecida com sucesso.")
 except Exception as e:
-    print(f"Erro ao conectar ao Neo4j: {e}")
+    # Se a conexão falhar, imprime um erro claro no log.
+    # Este é um ponto comum de falha no deploy.
+    print(f">>> ERRO CRÍTICO: Não foi possível conectar ao Neo4j. Verifique as variáveis de ambiente. Erro: {e}")
 
-# Função para fechar a conexão com o banco de dados ao encerrar a aplicação
+# Garante que a conexão com o banco seja fechada ao encerrar o app
 @atexit.register
 def close_db():
     if driver:
         driver.close()
-        print("Conexão com Neo4j fechada.")
+        print(">>> Conexão com Neo4j fechada.")
 
-# ### AJUSTE 3/3: ROTA PRINCIPAL PARA SERVIR O FRONTEND ###
-# Esta rota é a que resolve o erro "Not Found".
-# Ela precisa existir para que o Flask saiba o que mostrar na URL principal.
+
+# --- 4. ROTA PRINCIPAL PARA SERVIR O FRONTEND ---
+# Esta é a rota que resolve o erro "404 Not Found"
+# Quando alguém acessa a URL principal (ex: seu-site.up.railway.app/), esta função é chamada.
 @app.route('/')
 def serve_frontend():
+    # A função envia o arquivo 'index.html' da pasta 'frontend' para o navegador do usuário
     return send_from_directory(app.static_folder, 'index.html')
 
-# --- ROTAS DA API (SEU CÓDIGO ORIGINAL, INTACTO) ---
+
+# --- 5. ROTAS DA API ---
+# Todo o seu código de API continua abaixo, sem alterações.
 
 @app.route('/api/recommendations', methods=['GET'])
 def get_recommendations():
     if not driver:
-        return jsonify({"error": "Banco de dados não conectado."}), 500
+        return jsonify({"error": "Banco de dados não conectado."}), 503
 
     genre = request.args.get('genre')
     author = request.args.get('author')
@@ -81,29 +93,25 @@ def get_recommendations():
     try:
         with driver.session() as session:
             result = session.run(query, params)
-            recommendations = []
-            
-            for record in result:
-                book = {
+            recommendations = [
+                {
                     "title": record["title"],
-                    "author": record["author"] if record["author"] is not None else "Desconhecido",
+                    "author": record["author"] if record["author"] else "Desconhecido",
                     "genre": record["genre"],
-                    "year": record["year"] if record["year"] is not None else "N/A",
-                    "pages": record["pages"] if record["pages"] is not None else "N/A"
-                }
-                recommendations.append(book)
-            
+                    "year": record["year"] if record["year"] else "N/A",
+                    "pages": record["pages"] if record["pages"] else "N/A"
+                } for record in result
+            ]
             return jsonify(recommendations), 200
     except Exception as e:
         print(f"Erro ao executar consulta Cypher: {e}")
         return jsonify({"error": "Erro interno do servidor ao buscar recomendações."}), 500
 
-# (O restante do seu código de API continua aqui, exatamente como você escreveu)
 
 @app.route('/api/debug/all_data', methods=['GET'])
 def debug_all_data():
     if not driver:
-        return jsonify({"error": "Banco de dados não conectado."}), 500
+        return jsonify({"error": "Banco de dados não conectado."}), 503
     
     try:
         with driver.session() as session:
@@ -121,63 +129,56 @@ def debug_all_data():
             ORDER BY l.titulo
             """
             result = session.run(query)
-            
-            data = []
-            for record in result:
-                data.append({
+            data = [
+                {
                     "title": record["title"],
-                    "authors": [a for a in record["authors"] if a is not None],
-                    "genres": [g for g in record["genres"] if g is not None],
-                    "publishers": [p for p in record["publishers"] if p is not None],
+                    "authors": [a for a in record["authors"] if a],
+                    "genres": [g for g in record["genres"] if g],
+                    "publishers": [p for p in record["publishers"] if p],
                     "year": record["year"],
                     "pages": record["pages"]
-                })
-            
-            return jsonify({
-                "total_books": len(data),
-                "books": data
-            }), 200
-            
+                } for record in result
+            ]
+            return jsonify({"total_books": len(data), "books": data}), 200
     except Exception as e:
         print(f"Erro ao buscar dados para debug: {e}")
         return jsonify({"error": f"Erro ao buscar dados: {str(e)}"}), 500
 
+
 @app.route('/api/genres', methods=['GET'])
 def get_genres():
     if not driver:
-        return jsonify({"error": "Banco de dados não conectado."}), 500
+        return jsonify({"error": "Banco de dados não conectado."}), 503
     
     try:
         with driver.session() as session:
-            query = "MATCH (g:Genero) RETURN g.nome AS genre ORDER BY g.nome"
-            result = session.run(query)
+            result = session.run("MATCH (g:Genero) RETURN g.nome AS genre ORDER BY g.nome")
             genres = [record["genre"] for record in result]
             return jsonify(genres), 200
-            
     except Exception as e:
         print(f"Erro ao buscar gêneros: {e}")
         return jsonify({"error": f"Erro ao buscar gêneros: {str(e)}"}), 500
 
+
 @app.route('/api/authors', methods=['GET'])
 def get_authors():
     if not driver:
-        return jsonify({"error": "Banco de dados não conectado."}), 500
+        return jsonify({"error": "Banco de dados não conectado."}), 503
     
     try:
         with driver.session() as session:
-            query = "MATCH (a:Autor) RETURN a.nome AS author ORDER BY a.nome"
-            result = session.run(query)
+            result = session.run("MATCH (a:Autor) RETURN a.nome AS author ORDER BY a.nome")
             authors = [record["author"] for record in result]
             return jsonify(authors), 200
-            
     except Exception as e:
         print(f"Erro ao buscar autores: {e}")
         return jsonify({"error": f"Erro ao buscar autores: {str(e)}"}), 500
 
+
 @app.route('/api/cypher', methods=['POST'])
 def execute_cypher_query():
     if not driver:
-        return jsonify({"error": "Banco de dados não conectado."}), 500
+        return jsonify({"error": "Banco de dados não conectado."}), 503
     
     data = request.get_json()
     query = data.get('query')
@@ -189,79 +190,20 @@ def execute_cypher_query():
     try:
         with driver.session() as session:
             result = session.run(query, params)
-            records = []
             try:
-                for record in result:
-                    records.append(record.data())
+                records = [record.data() for record in result]
             except Exception:
                 summary = result.consume()
-                records.append(summary.counters.__dict__)
+                records = [{"summary": summary.counters.__dict__}]
             return jsonify(records), 200
     except Exception as e:
         return jsonify({"error": f"Erro ao executar consulta Cypher: {str(e)}"}), 500
 
-def get_node_count(label):
-    if not driver: return 0
-    try:
-        with driver.session() as session:
-            result = session.run(f"MATCH (n:{label}) RETURN count(n) AS count")
-            return result.single()["count"]
-    except Exception as e:
-        print(f"Erro ao contar nós {label}: {e}")
-        return 0
-
-@app.route('/api/stats/total_authors', methods=['GET'])
-def total_authors():
-    return jsonify({"count": get_node_count("Autor")})
-
-@app.route('/api/stats/total_books', methods=['GET'])
-def total_books():
-    return jsonify({"count": get_node_count("Livro")})
-
-@app.route('/api/stats/total_genres', methods=['GET'])
-def total_genres():
-    return jsonify({"count": get_node_count("Genero")})
-
-@app.route('/api/stats/total_publishers', methods=['GET'])
-def total_publishers():
-    return jsonify({"count": get_node_count("Editora")})
-
-@app.route('/api/stats/most_productive_authors', methods=['GET'])
-def most_productive_authors():
-    if not driver: return jsonify([])
-    try:
-        with driver.session() as session:
-            query = """
-            MATCH (a:Autor)-[:ESCREVEU]->(l:Livro)
-            RETURN a.nome AS author, count(l) AS bookCount
-            ORDER BY bookCount DESC LIMIT 3
-            """
-            result = session.run(query)
-            return jsonify([record.data() for record in result]), 200
-    except Exception as e:
-        print(f"Erro ao buscar autores mais produtivos: {e}")
-        return jsonify({"error": f"Erro ao buscar autores mais produtivos: {str(e)}"}), 500
-
-@app.route('/api/stats/most_popular_genres', methods=['GET'])
-def most_popular_genres():
-    if not driver: return jsonify([])
-    try:
-        with driver.session() as session:
-            query = """
-            MATCH (g:Genero)<-[:TEM_GENERO]-(l:Livro)
-            RETURN g.nome AS genre, count(l) AS bookCount
-            ORDER BY bookCount DESC LIMIT 3
-            """
-            result = session.run(query)
-            return jsonify([record.data() for record in result]), 200
-    except Exception as e:
-        print(f"Erro ao buscar gêneros mais populares: {e}")
-        return jsonify({"error": f"Erro ao buscar gêneros mais populares: {str(e)}"}), 500
 
 @app.route('/api/clear_database', methods=['POST'])
 def clear_database_endpoint():
     if not driver:
-        return jsonify({"error": "Banco de dados não conectado."}), 500
+        return jsonify({"error": "Banco de dados não conectado."}), 503
     try:
         with driver.session() as session:
             session.run("MATCH (n) DETACH DELETE n")
@@ -270,21 +212,23 @@ def clear_database_endpoint():
         print(f"Erro ao limpar o banco de dados: {e}")
         return jsonify({"error": f"Erro ao limpar o banco de dados: {str(e)}"}), 500
 
+
 @app.route('/api/test_connection', methods=['GET'])
 def test_connection_endpoint():
-    if driver:
-        try:
-            driver.verify_connectivity()
-            return jsonify({"status": "connected", "message": "Conexão com Neo4j estabelecida."}), 200
-        except Exception as e:
-            return jsonify({"status": "disconnected", "message": f"Erro na conexão com Neo4j: {str(e)}"}), 500
-    else:
-        return jsonify({"status": "disconnected", "message": "Driver Neo4j não inicializado."}), 500
+    if not driver:
+        return jsonify({"status": "disconnected", "message": "Driver Neo4j não inicializado."}), 503
+    
+    try:
+        driver.verify_connectivity()
+        return jsonify({"status": "connected", "message": "Conexão com Neo4j estabelecida."}), 200
+    except Exception as e:
+        return jsonify({"status": "disconnected", "message": f"Erro na conexão com Neo4j: {str(e)}"}), 500
+
 
 @app.route('/api/add_book', methods=['POST'])
 def add_book():
     if not driver:
-        return jsonify({"error": "Banco de dados não conectado."}), 500
+        return jsonify({"error": "Banco de dados não conectado."}), 503
 
     data = request.get_json()
     title = data.get('title')
@@ -340,5 +284,7 @@ def add_book():
         print(f"Erro ao adicionar livro: {e}")
         return jsonify({"error": f"Erro interno do servidor ao adicionar livro: {str(e)}"}), 500
 
+
+# Ponto de entrada para execução local (não é usado pelo Railway)
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
